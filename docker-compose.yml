@@ -1,9 +1,9 @@
-version: '3.7'
+version: '3.8'
 
 services:
 
   waterfall:
-    image: felixklauke/waterfall:1.14
+    image: coproglotte/waterfall:1.17
     container_name: waterfall
     restart: always
     stdin_open: true

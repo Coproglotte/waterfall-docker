@@ -1,19 +1,35 @@
-################################
-### We use a java base image ###
-################################
-FROM openjdk:11
-
-#####################################
-### Maintained by Felix Klauke    ###
-### Contact: info@felix-klauke.de ###
-#####################################
-LABEL maintainer="Felix Klauke <info@felix-klauke.de>"
+############################################################################
+### We use alpine as our base image to download the latest waterfall.jar ###
+############################################################################
+FROM docker.io/library/alpine:latest AS downloader
 
 #################
 ### Arguments ###
 #################
-ARG WATERFALL_VERSION=1.14
-ARG WATERFALL_DOWNLOAD_URL=https://papermc.io/api/v1/waterfall/${WATERFALL_VERSION}/latest/download
+ARG WATERFALL_PROJECTNAME=waterfall
+ARG WATERFALL_VERSION=1.17
+
+#####################
+### Install tools ###
+#####################
+RUN apk add --no-cache curl jq
+
+##########################
+### Download waterfall ###
+##########################
+RUN WATERFALL_BUILDS_URL=https://papermc.io/api/v2/projects/${WATERFALL_PROJECTNAME}/versions/${WATERFALL_VERSION} && \
+	WATERFALL_BUILD=$(curl ${WATERFALL_BUILDS_URL} | jq -r '.builds[-1]') && \
+	echo "### Latest build for Waterfall v${WATERFALL_VERSION} is ${WATERFALL_BUILD}" && \
+	WATERFALL_FILES_URL=https://papermc.io/api/v2/projects/${WATERFALL_PROJECTNAME}/versions/${WATERFALL_VERSION}/builds/${WATERFALL_BUILD} && \
+	WATERFALL_JAR=$(curl ${WATERFALL_FILES_URL} | jq -r '.downloads.application.name') && \
+	WATERFALL_DOWNLOAD_URL=https://papermc.io/api/v2/projects/${WATERFALL_PROJECTNAME}/versions/${WATERFALL_VERSION}/builds/${WATERFALL_BUILD}/downloads/${WATERFALL_JAR} && \
+	echo "### Downloading Waterfall from ${WATERFALL_DOWNLOAD_URL}" && \
+	curl --silent --location --output /waterfall.jar ${WATERFALL_DOWNLOAD_URL}
+
+################################
+### We use a java base image ###
+################################
+FROM docker.io/library/openjdk:17
 
 ###################
 ### Environment ###
@@ -23,12 +39,10 @@ ENV WATERFALL_PATH=/opt/waterfall
 ENV SERVER_PATH=${WATERFALL_PATH}/server
 ENV CONFIG_PATH=${WATERFALL_PATH}/config
 
-ENV JAVA_ARGS="-DIReallyKnowWhatIAmDoingISwear"
-
-##########################
-### Download waterfall ###
-##########################
-ADD ${WATERFALL_DOWNLOAD_URL} ${SERVER_PATH}/waterfall.jar
+########################
+### Import waterfall ###
+########################
+COPY --from=downloader /waterfall.jar ${SERVER_PATH}/waterfall.jar
 
 #########################
 ### Working directory ###
@@ -44,8 +58,8 @@ RUN chmod +x docker-entrypoint.sh
 ############
 ### User ###
 ############
-RUN addgroup waterfall && \
-    useradd -ms /bin/bash waterfall -g waterfall -d ${SERVER_PATH} && \
+RUN /usr/sbin/groupadd --gid 2756 waterfall && \
+    /usr/sbin/useradd -ms /bin/bash waterfall -u 2756 -g waterfall -d ${SERVER_PATH} && \
     mkdir ${CONFIG_PATH} ${SERVER_PATH}/logs ${SERVER_PATH}/plugins && \
     chown waterfall $WATERFALL_PATH -R
 
