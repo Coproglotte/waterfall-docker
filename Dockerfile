@@ -7,7 +7,7 @@ FROM docker.io/library/alpine:latest AS downloader
 ### Arguments ###
 #################
 ARG WATERFALL_PROJECTNAME=waterfall
-ARG WATERFALL_VERSION=1.17
+ARG WATERFALL_VERSION=1.18
 
 #####################
 ### Install tools ###
